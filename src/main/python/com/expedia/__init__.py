@@ -42,5 +42,30 @@ class MyLookupTransformer(BaseEstimator, TransformerMixin):
 		transform_dict = self._transform_dict()
 		func = lambda k: transform_dict[k]
 		if hasattr(X, "apply"):
-			return X.apply(func)
+			return numpy.vectorize(X.apply(func)).reshape(len(X), 1)
 		return numpy.vectorize(func)(X).reshape(len(X), 1)
+
+class MyMultiLookupTransformer(MyLookupTransformer):
+
+	def __init__(self, mapping, default_value):
+		super(MyMultiLookupTransformer, self).__init__(mapping, default_value)
+		length = -1
+		for k, v in mapping.items():
+			if type(k) is not tuple:
+				raise ValueError("Key is not a tuple")
+			if length == -1:
+				length = len(k)
+				continue
+			if length != len(k):
+				raise ValueError("Keys contain variable number of elements")
+
+	def fit(self, X, y = None):
+		return self
+
+	def transform(self, X):
+		transform_dict = self._transform_dict()
+		func = lambda k: transform_dict[tuple(k)]
+		if hasattr(X, "apply"):
+			return numpy.array(X.apply(func, axis = 1)).reshape(len(X), 1)
+		# See https://stackoverflow.com/a/3338368
+		return numpy.array([func((numpy.squeeze(numpy.asarray(row))).tolist()) for row in X]).reshape(len(X), 1)
